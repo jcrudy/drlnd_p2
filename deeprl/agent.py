@@ -1,8 +1,6 @@
 from collections import namedtuple
 import numpy as np
-from deeprl import EpsilonGreedyPolicy
 from tqdm import tqdm
-from deeprl import numpify, rolling_mean
 from infinity import inf
 from matplotlib import pyplot as plt
 import pickle
@@ -10,6 +8,8 @@ import pandas
 from six import with_metaclass
 from abc import ABCMeta, abstractmethod
 from toolz import last
+from .base import rolling_mean, numpify
+from .policy.epsilon_greedy import EpsilonGreedyPolicy
 
 Experience = namedtuple("Experience", 
                         field_names=["state", "action", "reward", 
@@ -45,57 +45,9 @@ class AverageReturnThreshold(EarlyStopper):
                 return True
         return False
 
+
+
 class Agent(object):
-    '''
-    Parameters
-    ==========
-    
-    model (deeprl.model.base.Model): The model used to learn the state-action value 
-        function.
-    
-    replay_buffer (deeprl.buffer.base.ReplayBuffer): The buffer that will be used to 
-        store and sample experience during training.
-        
-    training_policy (deeprl.policy.base.Policy): The policy used to choose actions
-        during training.
-    
-    learn_every (int, >0): The number of actions to perform between learning steps.
-    
-    batch_size (int, >0): The number of experiences to sample during each learning
-        step.
-    
-    '''
-    def __init__(self, model, replay_buffer, training_policy, 
-                 testing_policy=EpsilonGreedyPolicy(0, 0, 0), 
-                 learn_every=4, batch_size=64):
-        self.model = model
-        self.replay_buffer = replay_buffer
-        self.training_policy = training_policy
-        self.testing_policy = testing_policy
-        self.learn_every = learn_every
-        self.batch_size = batch_size
-        self.t = 0
-        self.episodes_trained = 0
-        self.train_scores = []
-        self.test_scores = []
-        self.train_episode_lengths = []
-        self.test_episode_lengths = []
-        
-    def to_pickle(self, filename):
-        with open(filename, 'wb') as outfile:
-            pickle.dump(self, outfile)
-    
-    @classmethod
-    def from_pickle(cls, filename):
-        with open(filename, 'rb') as outfile:
-            result = pickle.load(outfile)
-        if not isinstance(result, cls):
-            raise TypeError('Unpickled object is not correct type.')
-        return result
-    
-    def save_weights(self, filename):
-        self.model.save_weights(filename)
-    
     def plot_train_scores(self, episodes=inf, window=100):
         '''
         Plot the training scores for the last episodes, including a 
@@ -142,26 +94,19 @@ class Agent(object):
         df = df.groupby('x').aggregate([np.mean, np.std, len])
         plt.errorbar(df.index, df[('y', 'mean')], yerr=2 * df[('y', 'std')] / np.sqrt(df[('y', 'len')]), 
                      fmt='r.', ecolor='r', label='Test Scores', zorder=10)
-        
-    def learn(self):
-        '''
-        Sample from the replay buffer and call the model's learn method with the 
-        resulting data.
-        '''
-        # Sample from the replay buffer.
-        sample_indices, weights = self.replay_buffer.sample_indices(self.batch_size)
-        sample = self.replay_buffer[sample_indices]
-        
-        # Convert the sample to the form required by the model.
-        state, action, reward, next_state, done = map(np.array, zip(*sample))
-        
-        # Learn from the sample.
-        error = self.model.learn(state, action, reward, next_state, done, weights)
-        
-        # Inform the buffer of the errors for the sample.  Necessary for prioritized 
-        # sampling.
-        self.replay_buffer.report_errors(sample_indices, error)
-        
+
+    def to_pickle(self, filename):
+        with open(filename, 'wb') as outfile:
+            pickle.dump(self, outfile)
+    
+    @classmethod
+    def from_pickle(cls, filename):
+        with open(filename, 'rb') as outfile:
+            result = pickle.load(outfile)
+        if not isinstance(result, cls):
+            raise TypeError('Unpickled object is not correct type.')
+        return result
+    
     def train(self, environment, num_episodes=inf, validate_every=None, validation_size=10,
               save_every=None, save_path=None, early_stopper=NeverStopEarly(), plot=False,
               plot_window=100):
@@ -277,6 +222,69 @@ class Agent(object):
                 scores.append(self.test_episode(environment))
                 t.update(1)
         return scores
+    
+
+
+
+class DeepQAgent(Agent):
+    '''
+    Parameters
+    ==========
+    
+    model (deeprl.model.base.Model): The model used to learn the state-action value 
+        function.
+    
+    replay_buffer (deeprl.buffer.base.ReplayBuffer): The buffer that will be used to 
+        store and sample experience during training.
+        
+    training_policy (deeprl.policy.base.Policy): The policy used to choose actions
+        during training.
+    
+    learn_every (int, >0): The number of actions to perform between learning steps.
+    
+    batch_size (int, >0): The number of experiences to sample during each learning
+        step.
+    
+    '''
+    def __init__(self, model, replay_buffer, training_policy, 
+                 testing_policy=EpsilonGreedyPolicy(0, 0, 0), 
+                 learn_every=4, batch_size=64):
+        self.model = model
+        self.replay_buffer = replay_buffer
+        self.training_policy = training_policy
+        self.testing_policy = testing_policy
+        self.learn_every = learn_every
+        self.batch_size = batch_size
+        self.t = 0
+        self.episodes_trained = 0
+        self.train_scores = []
+        self.test_scores = []
+        self.train_episode_lengths = []
+        self.test_episode_lengths = []
+        
+    def save_weights(self, filename):
+        self.model.save_weights(filename)
+    
+    def learn(self):
+        '''
+        Sample from the replay buffer and call the model's learn method with the 
+        resulting data.
+        '''
+        # Sample from the replay buffer.
+        sample_indices, weights = self.replay_buffer.sample_indices(self.batch_size)
+        sample = self.replay_buffer[sample_indices]
+        
+        # Convert the sample to the form required by the model.
+        state, action, reward, next_state, done = map(np.array, zip(*sample))
+        
+        # Learn from the sample.
+        error = self.model.learn(state, action, reward, next_state, done, weights)
+        
+        # Inform the buffer of the errors for the sample.  Necessary for prioritized 
+        # sampling.
+        self.replay_buffer.report_errors(sample_indices, error)
+        
+    
     
     def train_episode(self, environment):
         '''

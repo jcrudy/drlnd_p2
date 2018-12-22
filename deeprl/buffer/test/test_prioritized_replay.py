@@ -1,10 +1,10 @@
-from deepq.buffer.prioritized_replay import PrioritizedReplayBuffer
-from deepq.environment.base import Environment
+from deeprl.buffer.prioritized_replay import PrioritizedReplayBuffer
+from deeprl.environment.base import Environment
 import numpy as np
-from deepq.agent import Experience
+from deeprl.agent import Experience
 from nose.tools import assert_equal  # @UnresolvedImport
 from nose.tools import assert_greater, assert_almost_equal
-from deepq.base import weighted_choice
+from deeprl.base import weighted_choice
 
 def test_weighted_choice():
     np.random.seed(0)

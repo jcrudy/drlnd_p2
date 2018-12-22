@@ -1,6 +1,6 @@
-from deepq.policy.epsilon_greedy import EpsilonGreedyPolicy
+from deeprl.policy.epsilon_greedy import EpsilonGreedyPolicy
 import numpy as np
-from numpy.testing._private.utils import assert_approx_equal
+from numpy.testing.nose_tools.utils import assert_approx_equal
 
 def test_epsilon_greedy_policy():
     np.random.seed(0)

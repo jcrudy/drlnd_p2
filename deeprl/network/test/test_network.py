@@ -1,4 +1,4 @@
-from deepq.network.base import Network
+from deeprl.network.base import Network
 import torch.nn as nn
 import torch.nn.functional as F
 from toolz import identity

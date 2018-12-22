@@ -58,4 +58,10 @@ class UnityBasedEnvironment(Environment):
     
 class BananaEnvironment(UnityBasedEnvironment):
     path = resources.banana
+
+class ReacherV1Environment(UnityBasedEnvironment):
+    path = resources.reacher_v1
     
+class ReacherV2Environment(UnityBasedEnvironment):
+    path = resources.reacher_v2
+

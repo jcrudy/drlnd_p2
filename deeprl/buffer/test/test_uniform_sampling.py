@@ -1,7 +1,7 @@
-from deepq.buffer.uniform_sampling import UniformSamplingReplayBuffer
-from deepq.environment.base import Environment
+from deeprl.buffer.uniform_sampling import UniformSamplingReplayBuffer
+from deeprl.environment.base import Environment
 import numpy as np
-from deepq.agent import Experience
+from deeprl.agent import Experience
 from nose.tools import assert_equal  # @UnresolvedImport
 
 def test_uniform_sampling_replay_buffer():

@@ -1,9 +1,9 @@
 import torch.nn.functional as F
 import torch.nn as nn
 from toolz import identity
-from deepq.network.base import Network
+from deeprl.network.base import Network
 import numpy as np
-from deepq.model.fixed_q_target import FixedQTargetModel
+from deeprl.model.fixed_q_target import FixedQTargetModel
 
 def test_fixed_q_target_network():
     # TODO: Make test data more meaningful and add some assertions.

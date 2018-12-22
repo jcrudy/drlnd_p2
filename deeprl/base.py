@@ -3,6 +3,7 @@ from torch.tensor import Tensor
 from numpy import ndarray
 import torch
 import numpy as np
+import os
 
 torchify = Dispatcher('torchify')
 
@@ -46,8 +47,13 @@ def constant(value):
         return value
     return _constant
 
-# def rolling_mean(x, y, window) :
-#     result = np.cumsum(y, dtype=float)
-#     result[window:] = result[window:] - result[:-window]
-#     return x[window:-window], result[window - 1:] / window
+def split_path(path):
+    path, tail = os.path.split(path)
+    if not path:
+        if not tail:
+            return []
+        else:
+            return [tail]
+    return split_path(path) + ([tail] if tail else [])
+        
 

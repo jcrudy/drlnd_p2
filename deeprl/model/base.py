@@ -4,10 +4,10 @@ import torch.nn.functional as F
 from copy import deepcopy
 from functools import partial
 import torch.optim as optim
-from deeprl import torchify, torchify32, numpify, constant
 from toolz import last
 import numpy as np
 import torch
+from ..base import torchify32, torchify, numpify, constant
 
 class Model(with_metaclass(ABCMeta, object)):
     @abstractmethod

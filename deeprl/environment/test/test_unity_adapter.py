@@ -1,4 +1,4 @@
-from deepq.environment.unity_adapter import BananaEnvironment
+from deeprl.environment.unity_adapter import BananaEnvironment, ReacherV1Environment
 import numpy as np
 from nose.tools import assert_equal, assert_is_instance  # @UnresolvedImport
 
@@ -11,6 +11,15 @@ def test_banana_environment():
     assert_is_instance(reward, float)
     assert_is_instance(done, bool)
     env.close()
+
+def test_reacher_v1_environment():
+    env = ReacherV1Environment()
+    state = env.reset(True)
+    action = np.random.normal(size=env.n_actions)
+    next_state, reward, done = env.step(action)
+    assert_equal(state.shape, next_state.shape)
+    assert_is_instance(reward, float)
+    assert_is_instance(done, bool)
     env.close()
     
 if __name__ == '__main__':
@@ -21,4 +30,6 @@ if __name__ == '__main__':
  
     result = nose.run(argv=[sys.argv[0],
                             module_name,
-                            '-s','-v'])
+                            '-s','-v',
+                            '--processes=1', 
+                            '--process-restartworker'])

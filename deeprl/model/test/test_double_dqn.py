@@ -1,9 +1,9 @@
 import torch.nn.functional as F
 import torch.nn as nn
 from toolz import identity
-from deepq.network.base import Network
+from deeprl.network.base import Network
 import numpy as np
-from deepq.model.double_dqn import DoubleDQNModel
+from deeprl.model.double_dqn import DoubleDQNModel
 
 def test_double_dqn():
     # TODO: Make test data more meaningful and add some assertions.
