@@ -5,6 +5,15 @@ from . import resources
 import os
 
 class UnityBasedEnvironment(Environment):
+    '''
+    A severe limitation of the UnityEnvironment in unityagents is that only one can be substantiated in 
+    a given Python process and it is incompatible with the multiprocessing package, perhaps due to its 
+    use of gRPC (see https://github.com/Unity-Technologies/ml-agents/issues/956).
+    
+    Somehow, the nose module's multiprocess plugin works around these issues, but I don't understand how 
+    and can't recreate it.  Therefore, only one UnityBasedEnvironment can be instantiated in the entire 
+    history of a particular Python process.
+    '''
     @abstractclassmethod
     def path(self):
         '''
@@ -24,8 +33,12 @@ class UnityBasedEnvironment(Environment):
         # Attempt to make worker_id differ across processes.  Obviously not guaranteed,
         # especially if each process has multiple workers.
         worker_id = (os.getpid() % 100) + UnityBasedEnvironment.worker_count
-        self.env = UnityEnvironment(file_name=self.path, no_graphics=(not graphics),
-                                    worker_id=worker_id)
+        self.env = UnityEnvironment(
+                                    file_name=self.path, 
+                                    no_graphics=(not graphics),
+                                    worker_id=worker_id,
+#                                     docker_training=True,
+                                    )
         UnityBasedEnvironment.worker_count += 1
         self.brain_name = self.env.brain_names[0]
         self.brain = self.env.brains[self.brain_name]
@@ -46,8 +59,8 @@ class UnityBasedEnvironment(Environment):
             raise ClosedEnvironmentError('Environment is already closed.')
         env_info = self.env.step(action)[self.brain_name]
         state = env_info.vector_observations[0]
-        reward = env_info.rewards[0] 
-        done = env_info.local_done[0] 
+        reward = env_info.rewards[0]
+        done = env_info.local_done[0]
         return state, reward, done
     
     def close(self):
