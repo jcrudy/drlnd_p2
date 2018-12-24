@@ -1,8 +1,10 @@
 from .base import Environment, ClosedEnvironmentError
 from unityagents import UnityEnvironment
-from abc import abstractclassmethod
+from abc import abstractclassmethod, abstractproperty
 from . import resources
 import os
+from deeprl.environment.base import IntInterval, CartesianProduct,\
+    FloatInterval
 
 class UnityBasedEnvironment(Environment):
     '''
@@ -71,10 +73,33 @@ class UnityBasedEnvironment(Environment):
     
 class BananaEnvironment(UnityBasedEnvironment):
     path = resources.banana
-
+    
+    @property
+    def action_space(self):
+        return CartesianProduct([IntInterval(0, self._n_actions - 1)])
+    
+    @property
+    def state_space(self):
+        return CartesianProduct([FloatInterval()] * 37)
+    
 class ReacherV1Environment(UnityBasedEnvironment):
     path = resources.reacher_v1
     
+    @property
+    def action_space(self):
+        return CartesianProduct([FloatInterval()] * 4)
+    
+    @property
+    def state_space(self):
+        return CartesianProduct([FloatInterval()] * 33)
+    
 class ReacherV2Environment(UnityBasedEnvironment):
     path = resources.reacher_v2
+    
+    @property
+    def action_space(self):
+        return CartesianProduct([[FloatInterval()] * 4] * 20)
 
+    @property
+    def state_space(self):
+        return CartesianProduct([[FloatInterval()] * 33] * 20)

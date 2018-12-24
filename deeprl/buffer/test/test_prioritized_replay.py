@@ -1,7 +1,8 @@
 from deeprl.buffer.prioritized_replay import PrioritizedReplayBuffer
-from deeprl.environment.base import Environment
+from deeprl.environment.base import Environment, CartesianProduct,\
+    IntInterval, FloatInterval
 import numpy as np
-from deeprl.agent import Experience
+from deeprl.agent.base import Experience
 from nose.tools import assert_equal  # @UnresolvedImport
 from nose.tools import assert_greater, assert_almost_equal
 from deeprl.base import weighted_choice
@@ -15,9 +16,6 @@ def test_weighted_choice():
 def test_uniform_sampling_replay_buffer():
     np.random.seed(0)
     class FauxEnvironment(Environment):
-        _state_size = 10
-        _n_actions = 10
-        
         def reset(self):
             return np.random.normal(size=10)
         
@@ -26,6 +24,14 @@ def test_uniform_sampling_replay_buffer():
         
         def close(self):
             pass
+        
+        @property
+        def action_space(self):
+            return CartesianProduct([IntInterval(0, 9)])
+        
+        @property
+        def state_space(self):
+            return CartesianProduct([FloatInterval()] * 10)
     
     np.random.seed(0)
     buffer_size = 10
@@ -35,7 +41,7 @@ def test_uniform_sampling_replay_buffer():
         state = env.reset()
         done = False
         while not done:
-            action = np.random.randint(env.n_actions)
+            action = env.action_space.random()
             next_state, reward, done = env.step(action)
             experience = Experience(state, action, reward, next_state, done)
             buffer.append(experience)

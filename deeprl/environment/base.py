@@ -3,22 +3,21 @@ from six import with_metaclass, class_types, integer_types
 import numpy as np
 from itertools import product
 from toolz.functoolz import compose
+from infinity import inf
 
 class ClosedEnvironmentError(Exception):
     pass
 
-class ActionValueError(Exception):
+class SpaceValueError(Exception):
     '''
     Raised if an action is not a valid value in the relevant action space.
     '''
 
-
-
-class ActionSpace(object):
+class Space(object):
     @abstractmethod
     def validate(self, action):
         '''
-        Raise ActionValueError if action is not valid in this action space.
+        Raise SpaceValueError if action is not valid in this action space.
         '''
     
     @abstractproperty
@@ -30,12 +29,24 @@ class ActionSpace(object):
     def __contains__(self, action):
         try:
             self.validate(action)
-        except ActionValueError:
+        except SpaceValueError:
             return False
         return True
+    
+    @abstractmethod
+    def random(self):
+        '''
+        Return a random action in this action space.
+        '''
+    
+    @abstractproperty
+    def size(self):
+        '''
+        The size (in an appropriate measure) of this space.
+        '''
 
-class Interval(ActionSpace):
-    def __init__(self, lower, upper, lower_closed=True, upper_closed=True):
+class Interval(Space):
+    def __init__(self, lower=-inf, upper=inf, lower_closed=True, upper_closed=True):
         self.lower = lower
         self.upper = upper
         self.lower_closed = lower_closed
@@ -54,28 +65,54 @@ class Interval(ActionSpace):
     
     def validate(self, action):
         if not isinstance(action, type(self).element_type):
-            raise ActionValueError('Action {} is not an integer.'.format(action))
+            raise SpaceValueError('Action {} is not an integer.'.format(action))
         if (action < self.lower or action > self.upper or 
             ((not self.lower_closed) and action == self.lower) or
             ((not self.upper_closed) and action == self.upper)):
-            raise ActionValueError('Action {} is not in the {} {}.'.format(action, type(self).__name__,
+            raise SpaceValueError('Action {} is not in the {} {}.'.format(action, type(self).__name__,
                                                                                 str(self)))
 
 class IntInterval(Interval):
     element_type = tuple(integer_types) + (np.number,)
-
+    
+    def random(self):
+        return np.random.randint(self.lower + (1 if not self.lower_closed else 0),
+                                 self.upper - (1 if not self.lower_closed else 0))
+    
+    @property
+    def size(self):
+        if self.lower > -inf and self.upper < inf:
+            lower = self.lower + (1 if not self.lower_closed else 0)
+            upper = self.upper - (1 if not self.lower_closed else 0)
+            return upper - lower + 1
+        else:
+            return inf
+        
 class FloatInterval(Interval):
     element_type = (float, np.floating)
 
-class ObjectInterval(Interval):
-    element_type = class_types
+    def random(self):
+        if self.lower > -inf and self.upper < inf:
+            return np.random.uniform(self.lower + (1 if not self.lower_closed else 0),
+                                     self.upper - (1 if not self.lower_closed else 0))
+        elif self.lower > -inf:
+            return self.lower + np.random.exponential()
+        elif self.upper < inf:
+            return self.upper - np.random.exponential()
+        else:
+            return np.random.normal()
     
-    
+    @property
+    def size(self):
+        if self.lower > -inf and self.upper < inf:
+            return self.upper - self.lower
+        else:
+            return inf
 #     def validate(self, action):
 #         if not isinstance(action, integer_types):
-#             raise ActionValueError('Action {} is not an integer.'.format(action))
+#             raise SpaceValueError('Action {} is not an integer.'.format(action))
 #         if action < self.lower or action > self.upper:
-#             raise ActionValueError('Action {} is not in the closed integer interval [{}, {}].'.format(
+#             raise SpaceValueError('Action {} is not in the closed integer interval [{}, {}].'.format(
 #                                                                                 self.lower, self.upper))
 
 
@@ -86,13 +123,8 @@ class ObjectInterval(Interval):
 #         Return an example action in this action space.
 #         '''
 #     
-#     @abstractmethod
-#     def random(self):
-#         '''
-#         Return a random action in this action space.
-#         '''
 
-class CartesianProductActionSpace(ActionSpace):
+class CartesianProduct(Space):
     def __init__(self, set_array):
         self.set_array = np.asarray(set_array)
     
@@ -103,7 +135,7 @@ class CartesianProductActionSpace(ActionSpace):
     def validate(self, action):
         action = np.asarray(action)
         if action.shape != self.shape:
-            raise ActionValueError('Action shape {} does not match required shape {}.'.format(action.shape, self.set_array.shape))
+            raise SpaceValueError('Action shape {} does not match required shape {}.'.format(action.shape, self.set_array.shape))
         
         for coord in product(*map(compose(tuple, range), self.shape)):
             print(coord)
@@ -111,22 +143,40 @@ class CartesianProductActionSpace(ActionSpace):
             set_element = self.set_array[coord]
             set_element.validate(action_element)
 #             if not action_element in set_element:
-#                 raise ActionValueError('Action element {} not in set {}.'.format(action_element, set_element))
+#                 raise SpaceValueError('Action element {} not in set {}.'.format(action_element, set_element))
         
 #         for action_element, set_element in np.nditer([action, self.set_array], ['refs_ok']):
 #             print(action_element, set_element)
 #             if not action_element in set_element:
-#                 raise ActionValueError('Action element {} not in set {}.'.format(action_element, set_element))
+#                 raise SpaceValueError('Action element {} not in set {}.'.format(action_element, set_element))
     
-        
+    def random(self):
+        result = np.empty_like(self.set_array)
+        for coord in product(*map(compose(tuple, range), self.shape)):
+            result[coord] = self.set_array[coord].random()
+        return result
+    
+    @property
+    def size(self):
+        result = 1
+        for coord in product(*map(compose(tuple, range), self.shape)):
+            result *= self.set_array[coord].size
+        return result
+    
 class Environment(with_metaclass(ABCMeta, object)):
-    @property
-    def state_size(self):
-        return self._state_size
+    @abstractproperty
+    def action_space(self):
+        '''
+        The action Space for the environment.  For performance, it's probably best for agents to use the 
+        action_space during initialization, but not to validate every action.  For debugging, action 
+        validation is a good idea.
+        '''
     
-    @property
-    def n_actions(self):
-        return self._n_actions
+    @abstractproperty
+    def state_space(self):
+        '''
+        The state Space for the environment.
+        ''' 
     
     @abstractmethod
     def reset(self, train):
