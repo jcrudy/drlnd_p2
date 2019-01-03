@@ -63,7 +63,7 @@ def main(args):
     agent.train(environment, num_episodes, validate_every=validate_every,
                 validation_size=validation_episodes, save_every=save_every,
                 save_path=save_filename, 
-                early_stopper=AverageReturnThreshold(threshold=threshold, episodes=window_size),
+                early_stopper=AverageReturnThreshold(threshold=threshold, epochs=window_size),
                 plot=True, plot_window=window_size)
     
     # Save trained agent to disk

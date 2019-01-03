@@ -36,60 +36,66 @@ class NeverStopEarly(EarlyStopper):
     
     
 class AverageReturnThreshold(EarlyStopper):
-    def __init__(self, threshold, episodes):
+    def __init__(self, threshold, epochs):
         self.threshold = threshold
-        self.episodes = episodes
+        self.epochs = epochs
     
     def __call__(self, agent):
-        if len(agent.train_scores) >= self.episodes:
-            if np.mean(list(map(last, agent.train_scores[-self.episodes:]))) >= self.threshold:
-                print(np.mean(agent.train_scores[-self.episodes:]))
+        if len(agent.train_scores) >= self.epochs:
+            if np.mean(list(map(last, agent.train_scores[-self.epochs:]))) >= self.threshold:
+                print(np.mean(agent.train_scores[-self.epochs:]))
                 return True
         return False
 
 
 
 class Agent(object):
-    def plot_train_scores(self, episodes=inf, window=100):
+    def __init__(self):
+        self.epochs_trained = 0
+        self.t = 0
+        self.train_scores = []
+        self.test_scores = []
+    
+    def plot_train_scores(self, epochs=inf, window=100):
         '''
-        Plot the training scores for the last episodes, including a 
+        Plot the training scores for the last epochs, including a 
         plot of the average total reward.
         
         Parameters
         ==========
         
-        episodes (int >0 or inf): Number of episodes to include.  If inf, all episodes 
+        epochs (int >0 or inf): Number of epochs to include.  If inf, all epochs 
             are included.
             
-        window (int, >0): Number of episodes to average for the average reward plot.
+        window (int, >0): Number of epochs to average for the average reward plot.
         
         '''
         x, y = map(np.array, zip(*self.train_scores))
         rolling_y = rolling_mean(y, window)
-        idx = x > (self.episodes_trained - episodes)
+        idx = x > (self.epochs_trained - epochs)
         x = x[idx]
         y = y[idx]
         rolling_y = rolling_y[idx]
-        plt.plot(x, y, label='Training Episode Scores')
+        plt.plot(x, y, label='Training Epoch Scores')
         plt.plot(x, rolling_y, label='Training Rolling Average Scores ({})'.format(window))
     
-    def plot_test_scores(self, episodes=inf):
+    def plot_test_scores(self, epochs=inf):
         '''
-        Plot average rewards for testing simulations against number of training episodes.  
+        Plot average rewards for testing simulations against number of training epochs.  
         If no testing simulations have been performed, nothing is done.  Error bars are 
         two standard deviations of the mean.
         
         Parameters
         ==========
         
-        episodes (int >0 or inf): Number of episodes to include.  If inf, all episodes 
+        epochs (int >0 or inf): Number of epochs to include.  If inf, all epochs 
             are included.
         
         '''
         if not self.test_scores:
             return
         x, y = map(np.array, zip(*self.test_scores))
-        idx = x > (self.episodes_trained - episodes)
+        idx = x > (self.epochs_trained - epochs)
         x = x[idx]
         y = y[idx]
         df = pandas.DataFrame(dict(x=x, y=y))
@@ -109,28 +115,28 @@ class Agent(object):
             raise TypeError('Unpickled object is not correct type.')
         return result
     
-    def train(self, environment, num_episodes=inf, validate_every=None, validation_size=10,
+    def train(self, environment, num_epochs=inf, validate_every=None, validation_size=10,
               save_every=None, save_path=None, early_stopper=NeverStopEarly(), plot=False,
               plot_window=100):
         '''
-        Train for num_episodes episodes and return the episode scores.
+        Train for num_epochs epochs and return the epoch scores.
         
         Parameters
         ==========
         
         environment (deeprl.environment.base.Environment): The environment on which to train_banana.
         
-        num_episodes (int >0 or inf): The maximum number of episodes for which to train_banana.
+        num_epochs (int >0 or inf): The maximum number of epochs for which to train_banana.
         
-        validate_every (int >0 or None): The number of episodes between validations using 
+        validate_every (int >0 or None): The number of epochs between validations using 
             the testing policy.
         
-        validation_size (int >0): The number of episodes per validation.
+        validation_size (int >0): The number of epochs per validation.
         
-        save_every (int >0 or None): The number of episodes between saving the agent.
+        save_every (int >0 or None): The number of epochs between saving the agent.
         
         save_path (int >0 or None): The path to which to save progress.  Will be formatted
-            with number of episodes trained.
+            with number of epochs trained.
         
         early_stopper (callable): A callable that accepts the agent as argument and returns
             True if the agent should stop training early and False otherwise.
@@ -146,48 +152,48 @@ class Agent(object):
             graph = plt.plot([0,1], [0,1])[0]
             meangraph = plt.plot([0,1], [0,1])[0]
         
-        with tqdm(total=num_episodes) as t:
-            episode = 0
-            while episode < num_episodes:
-                episode += 1
+        with tqdm(total=num_epochs) as t:
+            epoch = 0
+            while epoch < num_epochs:
+                epoch += 1
                 
                 # Run validation if appropriate
                 if (
                     (validate_every is not None) and 
-                    (episode % validate_every == 0)
+                    (epoch % validate_every == 0)
                     ):
                     self.test(environment, validation_size)
                 
-                # Train for one episode
-                episode_score = self.train_episode(environment)
+                # Train for one epoch
+                epoch_score = self.train_epoch(environment)
                 
                 # Inform the model and buffer of our progress
                 self.model.register_progress(self)
                 self.replay_buffer.register_progress(self)
                 
-                # Record score from training episode
-                scores.append(episode_score)
+                # Record score from training epoch
+                scores.append(epoch_score)
                 
                 # Update the progress bar
                 t.update(1)
-                t.set_description('Last Episode Reward: {}'.format(episode_score))
+                t.set_description('Last Epoch Reward: {}'.format(epoch_score))
                 
                 # Save progress if appropriate
                 if (
                     (save_every is not None) and
-                    (episode % save_every == 0)
+                    (epoch % save_every == 0)
                     ):
-                    path = save_path.format(num_episodes)
+                    path = save_path.format(num_epochs)
                     self.to_pickle(path)
                 
                 # Update live plot
-                if plot and episode >= 2:
+                if plot and epoch >= 2:
                     xplot = np.arange(len(scores))
                     graph.set_xdata(xplot)
                     graph.set_ydata(scores)
                     meangraph.set_xdata(xplot)
                     meangraph.set_ydata(rolling_mean(scores, plot_window))
-                    plt.xlim(0, num_episodes)
+                    plt.xlim(0, num_epochs)
                     lower = min(scores)
                     upper = max(scores)
                     over = (upper - lower) * .1
@@ -197,7 +203,7 @@ class Agent(object):
                 
                 # Check early stopping conditions
                 if early_stopper(self):
-                    print('Stopping early after {} episodes due to {}.'.format(self.episodes_trained, 
+                    print('Stopping early after {} epochs due to {}.'.format(self.epochs_trained, 
                                                                                early_stopper))
                     break
         
@@ -205,23 +211,23 @@ class Agent(object):
             plt.ioff()
         return scores
     
-    def test(self, environment, num_episodes):
+    def test(self, environment, num_epochs):
         '''
-        Run for num_episodes episodes under the testing policy and return 
-        the episode scores.
+        Run for num_epochs epochs under the testing policy and return 
+        the epoch scores.
         
         Parameters
         ==========
         
         environment (deeprl.environment.base.Environment): The environment on which to train_banana.
         
-        num_episodes (int >0 or inf): The maximum number of episodes for which to test.
+        num_epochs (int >0 or inf): The maximum number of epochs for which to test.
         
         '''
         scores = []
-        with tqdm(total=num_episodes) as t:
-            for _ in range(num_episodes):
-                scores.append(self.test_episode(environment))
+        with tqdm(total=num_epochs) as t:
+            for _ in range(num_epochs):
+                scores.append(self.test_epoch(environment))
                 t.update(1)
         return scores
     

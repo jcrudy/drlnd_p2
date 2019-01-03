@@ -27,16 +27,13 @@ class DeepQAgent(Agent):
     def __init__(self, model, replay_buffer, training_policy, 
                  testing_policy=EpsilonGreedyPolicy(0, 0, 0), 
                  learn_every=4, batch_size=64):
+        Agent.__init__(self)
         self.model = model
         self.replay_buffer = replay_buffer
         self.training_policy = training_policy
         self.testing_policy = testing_policy
         self.learn_every = learn_every
         self.batch_size = batch_size
-        self.t = 0
-        self.episodes_trained = 0
-        self.train_scores = []
-        self.test_scores = []
         self.train_episode_lengths = []
         self.test_episode_lengths = []
         
@@ -64,11 +61,11 @@ class DeepQAgent(Agent):
         
     
     
-    def train_episode(self, environment):
+    def train_epoch(self, environment):
         '''
-        Execute an episode of training and return the total reward.
+        Execute an epoch of training and return the total reward.
         '''
-        # Initialize the environment and episode variables.
+        # Initialize the environment and epoch variables.
         episode_score = 0.
         state = environment.reset(train=True)
         done = False
@@ -97,11 +94,11 @@ class DeepQAgent(Agent):
             action_count += 1
         
         self.train_episode_lengths.append(action_count)
-        self.train_scores.append((self.episodes_trained, episode_score))
-        self.episodes_trained += 1
+        self.train_scores.append((self.epochs_trained, episode_score))
+        self.epochs_trained += 1
         return episode_score
     
-    def test_episode(self, environment):
+    def test_epoch(self, environment):
         '''
         Execute an episode under the testing policy.
         '''
@@ -125,5 +122,5 @@ class DeepQAgent(Agent):
             action_count += 1
         
         self.test_episode_lengths.append(action_count)
-        self.test_scores.append((self.episodes_trained, episode_score))
+        self.test_scores.append((self.epochs_trained, episode_score))
         return episode_score

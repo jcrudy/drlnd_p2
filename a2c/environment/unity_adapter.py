@@ -5,6 +5,7 @@ from . import resources
 import os
 from deeprl.environment.base import IntInterval, CartesianProduct,\
     FloatInterval, MultiEnvironmentMixin
+import numpy as np
 
 class UnityBasedEnvironment(Environment):
     '''
@@ -54,15 +55,15 @@ class UnityBasedEnvironment(Environment):
         if self.closed:
             raise ClosedEnvironmentError('Environment is already closed.')
         env_info = self.env.reset(train_mode=train)[self.brain_name]
-        return env_info.vector_observations[0]
+        return np.array(env_info.vector_observations)
     
     def step(self, action):
         if self.closed:
             raise ClosedEnvironmentError('Environment is already closed.')
         env_info = self.env.step(action)[self.brain_name]
-        state = env_info.vector_observations[0]
-        reward = env_info.rewards[0]
-        done = env_info.local_done[0]
+        state = np.array(env_info.vector_observations)
+        reward = np.array(env_info.rewards)
+        done = np.array(env_info.local_done)
         return state, reward, done
     
     def close(self):
