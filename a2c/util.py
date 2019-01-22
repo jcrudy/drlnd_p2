@@ -87,12 +87,23 @@ def torchify_tensor(tens):
 def torchify_numpy(arr):
     return torch.from_numpy(arr)
 
-def torchify32(x):
+torchify32 = Dispatcher('torchify32')
+
+@torchify32.register(ndarray)
+def torchify32_numpy(x):
     # TODO: This could obviously be more efficient.  It 
     # also might be good for it to handle integers differently.
-    return torchify(numpify(x).astype(np.float32))
+    return torchify(x.astype(np.float32))
+
+@torchify32.register(float)
+def torchify32_float(x):
+    return torchify32(np.array([x]))[0]
 
 numpify = Dispatcher('numpify')
+
+@numpify.register(float)
+def numpify_float(flt):
+    return np.float(flt)
 
 @numpify.register(Tensor)
 def numpify_tensor(tens):
@@ -111,3 +122,21 @@ def discount(gamma, rewards, axis=1):
     b = [1]
     y = scipy.signal.lfilter(b, a, x=r, axis=axis)
     return np.flip(y, axis=axis)
+
+def td_target(gamma, rewards, values, axis=1):
+    values_slicer_pre = (slice(None, None, None),) * axis
+    values_slicer_post = (slice(None, None, None),) * (len(rewards.shape) - axis - 1)
+    values_slicer = values_slicer_pre + (slice(1, None, None),) + values_slicer_post
+    pad_shape = values.shape[:axis] + (1,) + values.shape[(axis + 1):]
+    shifted_values = np.concatenate([values[values_slicer], np.zeros(shape=pad_shape)], axis=axis)
+    return rewards + gamma * shifted_values
+
+def gae_from_td_target(gamma, lambda_, target, values, axis=1):
+    return discount(gamma * lambda_, target - values, axis=axis)
+
+def gae(gamma, lambda_, rewards, values, axis=1):
+    target = td_target(gamma, rewards, values, axis=axis)# - values
+    return gae_from_td_target(gamma, lambda_, target, values, axis=axis)
+
+
+
