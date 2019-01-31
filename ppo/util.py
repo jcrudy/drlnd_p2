@@ -8,6 +8,7 @@ from multipledispatch.dispatcher import Dispatcher
 from torch.tensor import Tensor
 from numpy import ndarray
 import scipy.signal
+import os
 
 def constant(value):
     def _constant(*args, **kwargs):
@@ -138,5 +139,14 @@ def gae(gamma, lambda_, rewards, values, axis=1):
     target = td_target(gamma, rewards, values, axis=axis)# - values
     return gae_from_td_target(gamma, lambda_, target, values, axis=axis)
 
+def split_path(path):
+    path, tail = os.path.split(path)
+    if not path:
+        if not tail:
+            return []
+        else:
+            return [tail]
+    return split_path(path) + ([tail] if tail else [])
+        
 
 

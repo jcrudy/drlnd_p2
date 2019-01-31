@@ -4,7 +4,7 @@ import platform
 import urllib.request
 import zipfile
 from zipfile import ZipFile
-from deeprl.base import split_path
+from ..util import split_path
 
 # def match_filename(directory, pattern):
 #     contents = list(filter(curry(flip(fnmatchcase))(pattern), os.listdir(directory)))

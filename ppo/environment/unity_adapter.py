@@ -1,9 +1,9 @@
 from .base import Environment, ClosedEnvironmentError
 from unityagents import UnityEnvironment
-from abc import abstractclassmethod, abstractproperty
+from abc import abstractclassmethod, abstractproperty, abstractmethod
 from . import resources
 import os
-from deeprl.environment.base import IntInterval, CartesianProduct,\
+from .base import IntInterval, CartesianProduct,\
     FloatInterval, MultiEnvironmentMixin
 import numpy as np
 
@@ -57,10 +57,14 @@ class UnityBasedEnvironment(Environment):
         env_info = self.env.reset(train_mode=train)[self.brain_name]
         return np.array(env_info.vector_observations)
     
+    @abstractmethod
+    def transform_action(self, action):
+        pass
+    
     def step(self, action):
         if self.closed:
             raise ClosedEnvironmentError('Environment is already closed.')
-        env_info = self.env.step(action)[self.brain_name]
+        env_info = self.env.step(self.transform_action(action))[self.brain_name]
         state = np.array(env_info.vector_observations)
         reward = np.array(env_info.rewards)
         done = np.array(env_info.local_done)
@@ -75,6 +79,9 @@ class UnityBasedEnvironment(Environment):
 class BananaEnvironment(UnityBasedEnvironment):
     path = resources.banana
     
+    def transform_action(self, action):
+        return action
+    
     @property
     def action_space(self):
         return CartesianProduct([IntInterval(0, self._n_actions - 1)])
@@ -82,8 +89,12 @@ class BananaEnvironment(UnityBasedEnvironment):
     @property
     def state_space(self):
         return CartesianProduct([FloatInterval()] * 37)
-    
-class ReacherV1Environment(UnityBasedEnvironment):
+
+class ReacherEnvironmentBase(UnityBasedEnvironment):
+    def transform_action(self, action):
+        return np.tanh(action)
+
+class ReacherV1Environment(ReacherEnvironmentBase):
     path = resources.reacher_v1
     
     @property
@@ -94,7 +105,7 @@ class ReacherV1Environment(UnityBasedEnvironment):
     def state_space(self):
         return CartesianProduct([FloatInterval()] * 33)
     
-class ReacherV2Environment(UnityBasedEnvironment, MultiEnvironmentMixin):
+class ReacherV2Environment(ReacherEnvironmentBase, MultiEnvironmentMixin):
     path = resources.reacher_v2
     def __init__(self, graphics=False):
         UnityBasedEnvironment.__init__(self, graphics=graphics)

@@ -1,6 +1,6 @@
 from torch import optim, nn
 from functools import partial
-from a2c.util import constant, torchify32, numpify, torchify, gae, td_target,\
+from ppo.util import constant, torchify32, numpify, gae, td_target,\
     rolling_mean
 import numpy as np
 from abc import abstractmethod, ABCMeta
@@ -26,7 +26,7 @@ class PolicyModel(with_metaclass(ABCMeta, nn.Module)):
         return torch.sum(self.rv(state).log_prob(sample), dim=-1)
     
     def prob(self, state, sample):
-        return torch.exp(self.log_prob(state, sample))# self.rv(state).prob(sample)
+        return torch.exp(self.log_prob(state, sample))
 
 class MuSigmaLayer(nn.Module):
     def __init__(self, input_size, output_size):
@@ -78,7 +78,7 @@ def select_batch(expected_batch_size, *args):
     
 class Agent(object):
     def __init__(self, policy_model, value_model, policy_optimizerer=partial(optim.Adam, lr=3e-4), 
-                 value_optimizerer=partial(optim.Adam, lr=3e-4), 
+                 value_optimizerer=partial(optim.Adam, lr=3e-4),
                  value_schedulerer=partial(optim.lr_scheduler.LambdaLR, lr_lambda=constant(1.)),
                  policy_schedulerer=partial(optim.lr_scheduler.LambdaLR, lr_lambda=constant(1.)),
                  gamma=.9, lambda_=0., n_updates_per_episode=10, epsilon=.1, 
@@ -101,22 +101,6 @@ class Agent(object):
         self.policy_clip = policy_clip
         self.value_clip = value_clip
     
-#     def collect_trajectory(self, environment):
-#         next_state = environment.reset(train=True)
-#         done = [False]
-#         trajectory = []
-#         while not np.all(done):
-#             state = torchify32(next_state)
-#             action = self.policy_model.sample(state)
-#             prob = self.policy_model.prob(state, action)
-#             value = self.value_model(state)
-# #             value = self.value_model(torch_state)
-# #             numpy_action = numpify(action)
-#             next_state, reward, done = environment.step(numpify(action))
-#             
-#             
-#             trajectory.append((state, action, prob.detach(), torchify32(reward), torchify(done), ))
-#         return list(map(partial(np.stack, axis=1), zip(*trajectory)))
     def collect_trajectory(self, environment):
         next_state = environment.reset(train=True)
         done = [False]
@@ -129,7 +113,7 @@ class Agent(object):
             value = self.value_model(torch_state).squeeze(-1)
 #             value = self.value_model(torch_state)
             numpy_action = numpify(action)
-            next_state, reward, done = environment.step(np.tanh(numpy_action))
+            next_state, reward, done = environment.step(numpy_action)
             
             trajectory.append((state, numpy_action, numpify(prob), reward, done, numpify(value)))
         return list(map(partial(np.stack, axis=1), zip(*trajectory)))
@@ -149,8 +133,8 @@ class Agent(object):
     def train(self, environment, num_epochs=1000):
         for _ in tqdm(range(num_epochs)):
             self.train_step(environment)
-#             self.policy_scheduler.step(self.train_scores[-1])
-#             self.value_scheduler.step(self.train_scores[-1])
+            self.policy_scheduler.step(self.train_scores[-1])
+            self.value_scheduler.step(self.train_scores[-1])
     
     def train_step(self, environment):
         '''
@@ -184,13 +168,11 @@ class Agent(object):
             
             # Update value model.
             value_loss = torch.mean((self.value_model(batch_torch_states).squeeze(-1) - batch_torch_td_targets) ** 2)
-            print('value loss before:', value_loss)
             self.value_optimizer.zero_grad()
             value_loss.backward()
             if self.value_clip is not None:
                 nn.utils.clip_grad_norm(self.policy_model.parameters(), self.value_clip)
             self.value_optimizer.step()
-            print('value loss after:', torch.mean((self.value_model(batch_torch_states).squeeze(-1) - batch_torch_td_targets) ** 2))
             
             # Update the policy model.
             self.policy_optimizer.zero_grad()
@@ -201,7 +183,6 @@ class Agent(object):
             batch_torch_advantages = torchify32(batch_advantages)
             policy_loss = -torch.mean(torch.min(batch_ratio * batch_torch_advantages, 
                                           batch_clipped_ratio * batch_torch_advantages))
-            print('policy loss before:', policy_loss)
             policy_loss.backward()
             if self.policy_clip is not None:
                 nn.utils.clip_grad_norm(self.policy_model.parameters(), self.policy_clip)
@@ -212,26 +193,19 @@ class Agent(object):
             batch_torch_advantages = torchify32(batch_advantages)
             policy_loss = -torch.mean(torch.min(batch_ratio * batch_torch_advantages, 
                                           batch_clipped_ratio * batch_torch_advantages))
-            print('policy loss after:', policy_loss)
         
         self.episodes_trained += n_episodes
         self.epochs_trained += 1
         self.train_scores.append(average_rewards)
         self.train_episodes.append(self.episodes_trained)
         
-        
 if __name__ == '__main__':
-    from a2c.environment.unity_adapter import ReacherV2Environment
+    from ppo.environment.unity_adapter import ReacherV2Environment
     environment = ReacherV2Environment()
     
-    hidden_size = 512
+    hidden_size = 400
     state_size = environment.state_space.shape[1]
     action_size = environment.action_space.shape[1]
-    shared_network = nn.Sequential(
-                                  nn.Linear(state_size, hidden_size),
-                                  nn.ReLU(),
-                                  nn.Linear(hidden_size, hidden_size),
-                                  )
     actor_network = nn.Sequential(
                                   nn.Linear(state_size, hidden_size),
                                   nn.ReLU(),
@@ -246,13 +220,6 @@ if __name__ == '__main__':
                                    nn.ReLU(),
                                    nn.Linear(hidden_size, 1),
                                    )
-#     critic_network = nn.Sequential(
-#                                   nn.Linear(environment.state_space.shape[1], hidden_size),
-#                                   nn.ReLU(),
-#                                   nn.Linear(hidden_size, hidden_size),
-#                                   nn.ReLU(),
-#                                   nn.Linear(hidden_size, 1)
-#                                   )
     
     actor_model = NormalPolicy(actor_network)
     

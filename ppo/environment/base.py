@@ -108,21 +108,6 @@ class FloatInterval(Interval):
             return self.upper - self.lower
         else:
             return inf
-#     def validate(self, action):
-#         if not isinstance(action, integer_types):
-#             raise SpaceValueError('Action {} is not an integer.'.format(action))
-#         if action < self.lower or action > self.upper:
-#             raise SpaceValueError('Action {} is not in the closed integer interval [{}, {}].'.format(
-#                                                                                 self.lower, self.upper))
-
-
-
-#     @abstractmethod
-#     def example(self):
-#         '''
-#         Return an example action in this action space.
-#         '''
-#     
 
 class CartesianProduct(Space):
     def __init__(self, set_array):
@@ -142,13 +127,6 @@ class CartesianProduct(Space):
             action_element = action[coord]
             set_element = self.set_array[coord]
             set_element.validate(action_element)
-#             if not action_element in set_element:
-#                 raise SpaceValueError('Action element {} not in set {}.'.format(action_element, set_element))
-        
-#         for action_element, set_element in np.nditer([action, self.set_array], ['refs_ok']):
-#             print(action_element, set_element)
-#             if not action_element in set_element:
-#                 raise SpaceValueError('Action element {} not in set {}.'.format(action_element, set_element))
     
     def random(self):
         result = np.empty_like(self.set_array)
@@ -195,22 +173,18 @@ class Environment(with_metaclass(ABCMeta, object)):
         '''
         Close the environment.
         '''
-    
-#     def __del__(self):
-#         self.close()
-
 
 class MultiEnvironmentMixin(object):
     '''
     An environment which is multiple copies of the same environment.
     '''
-
-class CompositeEnvironment(MultiEnvironmentMixin, Environment):
-    def __init__(self, environment_generator, n_copies):
-        self.n_copies = n_copies
-        self.environment_generator = environment_generator
-        self.environments = tuple(self.environment_generator() for _ in range(self.n_copies))
-    
-    # TODO: Finish this class
+# 
+# class CompositeEnvironment(MultiEnvironmentMixin, Environment):
+#     def __init__(self, environment_generator, n_copies):
+#         self.n_copies = n_copies
+#         self.environment_generator = environment_generator
+#         self.environments = tuple(self.environment_generator() for _ in range(self.n_copies))
+#     
+#     # TODO: Finish this class
     
     
