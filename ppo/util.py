@@ -10,10 +10,13 @@ from numpy import ndarray
 import scipy.signal
 import os
 
-def constant(value):
-    def _constant(*args, **kwargs):
-        return value
-    return _constant
+
+class Constant(object):
+    def __init__(self, value):
+        self.value = value
+        
+    def __call__(self, *args, **kwargs):
+        return self.value
 
 def rolling_mean(y, window):
     result = (

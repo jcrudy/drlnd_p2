@@ -1,6 +1,6 @@
 from torch import optim, nn
 from functools import partial
-from ppo.util import constant, torchify32, numpify, gae, td_target,\
+from ppo.util import Constant, torchify32, numpify, gae, td_target,\
     rolling_mean
 import numpy as np
 from abc import abstractmethod, ABCMeta
@@ -13,6 +13,7 @@ from typing import Iterable
 from toolz.functoolz import curry
 from matplotlib import pyplot as plt
 from tqdm import tqdm
+import pickle
 
 class PolicyModel(with_metaclass(ABCMeta, nn.Module)):
     @abstractmethod
@@ -79,8 +80,8 @@ def select_batch(expected_batch_size, *args):
 class Agent(object):
     def __init__(self, policy_model, value_model, policy_optimizerer=partial(optim.Adam, lr=3e-4), 
                  value_optimizerer=partial(optim.Adam, lr=3e-4),
-                 value_schedulerer=partial(optim.lr_scheduler.LambdaLR, lr_lambda=constant(1.)),
-                 policy_schedulerer=partial(optim.lr_scheduler.LambdaLR, lr_lambda=constant(1.)),
+                 value_schedulerer=partial(optim.lr_scheduler.LambdaLR, lr_lambda=Constant(1.)),
+                 policy_schedulerer=partial(optim.lr_scheduler.LambdaLR, lr_lambda=Constant(1.)),
                  gamma=.9, lambda_=0., n_updates_per_episode=10, epsilon=.1, 
                  expected_minibatch_size=15000, policy_clip=None, value_clip=None):
         self.policy_model = policy_model
@@ -100,6 +101,18 @@ class Agent(object):
         self.expected_minibatch_size = expected_minibatch_size
         self.policy_clip = policy_clip
         self.value_clip = value_clip
+    
+    def to_pickle(self, filename):
+        with open(filename, 'wb') as outfile:
+            pickle.dump(self, outfile)
+    
+    @classmethod
+    def from_pickle(cls, filename):
+        with open(filename, 'rb') as outfile:
+            result = pickle.load(outfile)
+        if type(result) is not cls:
+            raise TypeError('Unpickled object is not correct type.')
+        return result
     
     def collect_trajectory(self, environment):
         next_state = environment.reset(train=True)
@@ -199,33 +212,6 @@ class Agent(object):
         self.train_scores.append(average_rewards)
         self.train_episodes.append(self.episodes_trained)
         
-if __name__ == '__main__':
-    from ppo.environment.unity_adapter import ReacherV2Environment
-    environment = ReacherV2Environment()
     
-    hidden_size = 400
-    state_size = environment.state_space.shape[1]
-    action_size = environment.action_space.shape[1]
-    actor_network = nn.Sequential(
-                                  nn.Linear(state_size, hidden_size),
-                                  nn.ReLU(),
-                                  nn.Linear(hidden_size, hidden_size),
-                                  nn.ReLU(),
-                                  MuSigmaLayer(hidden_size, action_size),
-                                  )
-    critic_network = nn.Sequential(
-                                   nn.Linear(state_size, hidden_size),
-                                   nn.ReLU(),
-                                   nn.Linear(hidden_size, hidden_size),
-                                   nn.ReLU(),
-                                   nn.Linear(hidden_size, 1),
-                                   )
-    
-    actor_model = NormalPolicy(actor_network)
-    
-    agent = Agent(policy_model=actor_model, value_model=critic_network)
-    agent.train(environment, 1000)
-    agent.plot()
-    plt.show()
     
     

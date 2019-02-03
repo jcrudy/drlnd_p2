@@ -17,5 +17,4 @@ dependencies:
     - scipy=1.1.0
     - pip:
         - unityagents
-        - git+https://github.com/openai/gym.git@v0.9.6
         
